@@ -151,7 +151,7 @@ app.get('/', cacheMiddleware(300), async (req, res) => {
 
         res.render('index', {
             videos, currentPage: page, totalPages, totalVideos,
-            current_title: `${res.locals.site_name}${page_label} | Nonton Bokep Bocil Terbaru, Bokep Chindo, Bokep Colmek, Bokep Hijab - Bokep Indo Terbaru`,
+            current_title: `${res.locals.site_name}${page_label} - Nonton Bokep Bocil Terbaru, Bokep Chindo, Bokep Colmek, Bokep Hijab - Bokep Indo Terbaru`,
             current_desc: `Nonton bokep bocil terbaru, bokep chindo terbaik, bokep bocil smp, bokep hijab, bokep bocil colmek dan segudang bokep update terbaru setiap harinya.${page_label}`,
             current_image: `${res.locals.site_url}/og-image.jpg`
         });
@@ -198,7 +198,7 @@ app.get('/video/:slug', cacheMiddleware(3600), async (req, res) => {
         // Data lengkap untuk meta tags
         const seoData = {
             // Meta dasar
-            seo_title: `${video.title} | ${res.locals.site_name}`,
+            seo_title: `${video.title} - ${res.locals.site_name}`,
             seo_description: seoDescription,
             seo_canonical: `${res.locals.site_url}/video/${video.slug}`,
 
@@ -229,7 +229,7 @@ app.get('/video/:slug', cacheMiddleware(3600), async (req, res) => {
             schema_date: formattedDate,
 
             // Data tambahan untuk header.ejs
-            current_title: `${video.title} | ${res.locals.site_name}`,
+            current_title: `${video.title} - ${res.locals.site_name}`,
             current_desc: seoDescription,
             current_image: meta_image,
             current_url: `${res.locals.site_url}/video/${video.slug}`,
@@ -252,19 +252,34 @@ app.get('/video/:slug', cacheMiddleware(3600), async (req, res) => {
 // --- SEARCH (Cache 10 Menit) ---
 app.get('/search', cacheMiddleware(600), async (req, res) => {
     try {
-        const q = req.query.q || '';
-        const query = {
-            $or: [
-                { title: { $regex: q, $options: 'i' } },
-                { tags: { $regex: q, $options: 'i' } }
-            ]
-        };
+        const q = (req.query.q || '').trim();
+        const page = parseInt(req.query.page) || 1;
+        const limit = 24;
+        const skip = (page - 1) * limit;
 
-        const videos = await Video.find(query).sort({ created_at: -1 }).limit(24);
+        const query = q
+            ? {
+                $or: [
+                    { title: { $regex: q, $options: 'i' } },
+                    { tags: { $regex: q, $options: 'i' } }
+                ]
+            }
+            : {};
+
+        const [videos, totalVideos] = await Promise.all([
+            Video.find(query).sort({ created_at: -1 }).skip(skip).limit(limit),
+            Video.countDocuments(query)
+        ]);
+
+        const totalPages = Math.ceil(totalVideos / limit) || 1;
 
         res.render('search', {
-            videos, q,
-            current_title: `Pencarian: ${q} | ${res.locals.site_name}`,
+            videos,
+            q,
+            currentPage: page,
+            totalPages,
+            totalVideos,
+            current_title: `Pencarian: ${q} - ${res.locals.site_name}`,
             no_index: true
         });
     } catch (err) {
@@ -293,7 +308,7 @@ app.get('/tag/:tag', cacheMiddleware(1800), async (req, res) => {
 
         res.render('tags', {
             videos, display_tag, tagSlug, currentPage: page, totalPages, totalVideos,
-            current_title: `${display_tag}${page_label} | ${res.locals.site_name}`,
+            current_title: `${display_tag}${page_label} - ${res.locals.site_name}`,
             current_desc: seoDescription + page_label,  // Gunakan description SEO
             seo_description: seoDescription  // Tambahkan untuk template
         });
@@ -323,7 +338,7 @@ app.get('/category/:slug', cacheMiddleware(1800), async (req, res) => {
         res.render('category', {
             videos, display_cat, categorySlug, currentPage: page, totalPages, totalVideos,
             rss_category_slug: categorySlug,
-            current_title: `${display_cat}${page_label} | ${res.locals.site_name}`,
+            current_title: `${display_cat}${page_label} - ${res.locals.site_name}`,
             current_desc: seoDescription + page_label,  // Gunakan description SEO
             seo_description: seoDescription  // Tambahkan untuk template
         });
@@ -376,7 +391,7 @@ app.get('/rss', async (req, res) => {
             <description><![CDATA[
                 <img src="${thumbUrl}" width="320" height="180" style="object-fit:cover;" /><br/>
                 <p>${(vid.description || '').substring(0, 300)}...</p>
-                <p><strong>Durasi:</strong> ${duration} | <strong>Views:</strong> ${vid.views || 0}</p>
+                <p><strong>Durasi:</strong> ${duration} - <strong>Views:</strong> ${vid.views || 0}</p>
             ]]></description>
             <media:content url="${thumbUrl}" medium="image">
                 <media:title type="plain"><![CDATA[${vid.title}]]></media:title>
